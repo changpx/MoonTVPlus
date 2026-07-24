@@ -1,0 +1,57 @@
+name: Create MoonTVPlus D1
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  create:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Wrangler
+        run: npm install --global wrangler@4.60.0
+
+      - name: Create or locate D1 database
+        id: d1
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          database_id="$(
+            wrangler d1 list --json |
+              jq -r '.[] | select(.name == "moontvplus") | .uuid' |
+              head -n 1
+          )"
+
+          if [ -z "$database_id" ]; then
+            wrangler d1 create moontvplus --json > d1-created.json
+            database_id="$(jq -r '.d1_databases[0].database_id' d1-created.json)"
+          fi
+
+          if ! printf '%s' "$database_id" |
+            grep -Eq '^[0-9a-fA-F-]{36}$'; then
+            echo "::error::Could not resolve a valid D1 database ID"
+            exit 1
+          fi
+
+          sed -i \
+            "s/REPLACE_WITH_YOUR_D1_DATABASE_ID/$database_id/g" \
+            wrangler.toml
+
+      - name: Save D1 binding
+        run: |
+          if git diff --quiet -- wrangler.toml; then
+            echo "D1 binding already configured"
+            exit 0
+          fi
+
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add wrangler.toml
+          git commit -m "chore: configure Cloudflare D1 database"
+          git push

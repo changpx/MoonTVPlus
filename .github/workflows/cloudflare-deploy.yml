@@ -87,8 +87,10 @@ jobs:
           elif [ -n "${{ secrets.D1_DATABASE_ID }}" ]; then
             sed -i 's/REPLACE_WITH_YOUR_D1_DATABASE_ID/${{ secrets.D1_DATABASE_ID }}/g' wrangler.toml
             echo "D1 Database ID replaced successfully"
+          elif ! grep -q 'REPLACE_WITH_YOUR_D1_DATABASE_ID' wrangler.toml; then
+            echo "Using D1 Database ID committed in wrangler.toml"
           else
-            echo "⚠️ Storage type is d1 but D1_DATABASE_ID secret not set"
+            echo "⚠️ Storage type is d1 but no D1 Database ID is configured"
             exit 1
           fi
 
@@ -156,11 +158,6 @@ jobs:
 
           if [ "$STORAGE_TYPE" != "d1" ]; then
             echo "Storage type is not d1 (current: $STORAGE_TYPE), skipping D1 migrations"
-            exit 0
-          fi
-
-          if [ -z "${{ secrets.D1_DATABASE_ID }}" ]; then
-            echo "D1_DATABASE_ID not set, skipping migrations"
             exit 0
           fi
 
