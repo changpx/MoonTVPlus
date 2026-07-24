@@ -1,0 +1,32 @@
+name: Diagnose Upstash
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check configured Upstash connection
+        env:
+          UPSTASH_URL: ${{ secrets.UPSTASH_URL }}
+          UPSTASH_TOKEN: ${{ secrets.UPSTASH_TOKEN }}
+        run: |
+          if [ -z "$UPSTASH_URL" ] || [ -z "$UPSTASH_TOKEN" ]; then
+            echo "::error::UPSTASH_URL or UPSTASH_TOKEN is missing"
+            exit 1
+          fi
+
+          status="$(curl --silent --show-error --output response.txt \
+            --write-out '%{http_code}' \
+            --header "Authorization: Bearer $UPSTASH_TOKEN" \
+            "$UPSTASH_URL/ping")"
+
+          echo "Upstash HTTP status: $status"
+          if [ "$status" != "200" ]; then
+            echo "::error::Upstash rejected the configured credentials or endpoint"
+            exit 1
+          fi
+
+          grep -q 'PONG' response.txt
+          echo "Upstash connection is healthy"
